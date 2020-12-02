@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+.ipynb_checkpoints
+.idea/
+.python-version
+
+.env
+.venv
+venv/
+ENV/
+.direnv
+
+downloads/
