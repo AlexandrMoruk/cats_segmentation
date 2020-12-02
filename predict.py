@@ -19,12 +19,14 @@ def colorize_mask(mask, palette):
     new_mask.putpalette(palette)
     return new_mask
 
-def save_image(image, mask, path):
+def save_image(image, mask, path, orig_shape):
     mask_path = f"{PurePath(path).parent}/{PurePath(path).stem}_mask.png"
     colorize_mask(mask, palete).save(mask_path)
+    image = albu.Resize(512, 512)(image=image)['image']
+
     mask = imread(mask_path)
     out_im = image // 2 + mask // 2
-    io.imsave(path, out_im)
+    io.imsave(path, albu.Resize(*orig_shape)(image=out_im)['image'])
     return mask_path
 
 def main():
@@ -35,13 +37,16 @@ def main():
     model.to(device)
     model.eval()
     image = imread(args.image_path)
-    valid_transformation = albu.Compose([albu.Normalize(), ToTensor()])
+    valid_transformation = albu.Compose(
+        [albu.Resize(512, 512), albu.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)), ToTensor()]
+    )
+
     im = valid_transformation(image=image)["image"].unsqueeze(0)
     prediction = model(im.to(device))
     prediction = prediction.squeeze(0).detach().cpu().numpy()
 
     prediction = F.softmax(torch.from_numpy(prediction), dim=0).argmax(0).cpu().numpy()
-    save_image(image, prediction, args.out_path)
+    save_image(image, prediction, args.out_path, image.shape[:2])
 
 
 

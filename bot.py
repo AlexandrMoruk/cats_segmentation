@@ -38,13 +38,15 @@ except FileNotFoundError:
 
 def evaluate_image(image_path):
     image = imread(image_path)
-    valid_transformation = albu.Compose([albu.Normalize(), ToTensor()])
+    valid_transformation = albu.Compose(
+        [albu.Resize(512, 512), albu.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)), ToTensor()]
+    )
     im = valid_transformation(image=image)["image"].unsqueeze(0)
     prediction = model(im.to(device))
     prediction = prediction.squeeze(0).detach().cpu().numpy()
 
     prediction = F.softmax(torch.from_numpy(prediction), dim=0).argmax(0).cpu().numpy()
-    mask_path = save_image(image, prediction, image_path.replace(".", "_new."))
+    mask_path = save_image(image, prediction, image_path.replace(".", "_new."), image.shape[:2])
     return image_path.replace(".", "_new."), mask_path
 
 
@@ -103,9 +105,7 @@ def get_message(last_id=None):
         return None
 
     upd_counter += 1
-
     chat_id = str(last_result['message']['chat']['id'])
-
 
     if chat_id not in user_ids:
         message_text = last_result['message'].get('text')
@@ -116,7 +116,6 @@ def get_message(last_id=None):
             send_message(chat_id, text='Enter password')
             return None
 
-
     image = last_result['message'].get('document', 0) or last_result['message'].get('photo', 0)
 
     if not image:
@@ -126,13 +125,14 @@ def get_message(last_id=None):
 
     path = get_file(image)
 
-
     if path == -1:
         send_message(chat_id, "Unsupported file type, please choose another type (jpg, png)")
         return
 
     image_path, mask_path = evaluate_image(path)
+    send_message(chat_id,"Image")
     send_image(chat_id, image_path)
+    send_message(chat_id,"Mask 512x512")
     send_image(chat_id, mask_path)
 
     username = last_result["message"]["chat"]["username"]
@@ -143,13 +143,11 @@ def get_message(last_id=None):
     return None
 
 
-
 def refresh_extrad():
     upd_id = get_dict(URL, 'getupdates')['result'][-1]["update_id"]
     url = URL + f"getupdates?offset={upd_id + 1}"
     requests.get(url)
     return  upd_id
-
 
 
 if __name__ == "__main__":
